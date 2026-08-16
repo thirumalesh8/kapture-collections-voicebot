@@ -4,6 +4,10 @@ const app = express();
 
 app.use(express.json());
 
+app.get("/", (req, res) => {
+    res.send("Kapture Collections Voicebot backend is running successfully.");
+});
+
 function sendToolResult(res, callId, result) {
     return res.status(200).json({
         results: [
