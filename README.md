@@ -28,5 +28,5 @@ This tool is used to verify the customer's identity before discussing account in
 
 for testing perpose use this:-
 It takes:
-account_id:ACC-88392
-verification_code:1234
+account_id: "ACC-88392" AND 
+verification_code: "1234"
