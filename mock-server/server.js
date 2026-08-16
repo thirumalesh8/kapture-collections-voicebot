@@ -41,15 +41,38 @@ app.post("/webhook", (req, res) => {
     let callId;
 
     if (toolCall) {
-        tool = toolCall.name;
-        args = toolCall.arguments || {};
+        tool =
+            toolCall.name ||
+            toolCall.function?.name;
+
+        const rawArguments =
+            toolCall.arguments ??
+            toolCall.function?.arguments ??
+            toolCall.parameters ??
+            {};
+
+        args =
+            typeof rawArguments === "string"
+                ? JSON.parse(rawArguments)
+                : rawArguments;
+
         callId = toolCall.id;
     } else {
-        tool = call.function.name;
+        tool =
+            call.function?.name ||
+            call.name;
+
+        const rawArguments =
+            call.function?.arguments ??
+            call.arguments ??
+            call.parameters ??
+            {};
+
         args =
-            typeof call.function.arguments === "string"
-                ? JSON.parse(call.function.arguments)
-                : call.function.arguments || {};
+            typeof rawArguments === "string"
+                ? JSON.parse(rawArguments)
+                : rawArguments;
+
         callId = call.id;
     }
 
@@ -109,6 +132,8 @@ app.post("/webhook", (req, res) => {
     });
 });
 
-app.listen(3000, () => {
-    console.log("Server running on port 3000");
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
