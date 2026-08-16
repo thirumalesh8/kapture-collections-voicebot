@@ -5,7 +5,7 @@ const app = express();
 app.use(express.json());
 
 function sendToolResult(res, callId, result) {
-    return res.json({
+    return res.status(200).json({
         results: [
             {
                 toolCallId: callId,
@@ -16,100 +16,97 @@ function sendToolResult(res, callId, result) {
 }
 
 app.post("/webhook", (req, res) => {
-    try {
-        const { message } = req.body;
+    console.log("========== VAPI REQUEST ==========");
+    console.log(JSON.stringify(req.body, null, 2));
 
-        const toolCalls = message.toolCallList || message.toolCalls;
+    const { message } = req.body;
 
-        if (!toolCalls || toolCalls.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: "No tool call received."
-            });
-        }
-
-        const toolCall = toolCalls[0];
-
-        const tool = toolCall.function.name;
-
-        let args = toolCall.function.arguments;
-
-       
-        if (typeof args === "string") {
-            args = JSON.parse(args);
-        }
-
-        const callId = toolCall.id;
-
-        console.log("TOOL:", tool);
-        console.log("ARGUMENTS:", args);
+   
+    const toolCall = message.toolCallList?.[0];
 
     
+    const oldToolCall = message.toolCalls?.[0];
 
-        if (tool === "verify_customer") {
-            const verified =
-                args.account_id === "ACC-88392" &&
-                args.verification_code === "1234";
+    const call = toolCall || oldToolCall;
 
-            if (verified) {
-                return sendToolResult(res, callId, {
-                    verified: true,
-                    message: "Identity verified successfully."
-                });
-            }
-
-            return sendToolResult(res, callId, {
-                verified: false,
-                message: "Verification failed."
-            });
-        }
-
-        
-
-        if (tool === "log_promise_to_pay") {
-            return sendToolResult(res, callId, {
-                success: true,
-                message: "Promise to pay recorded successfully.",
-                account_id: args.account_id,
-                ptp_date: args.ptp_date,
-                amount: args.amount
-            });
-        }
-
-        
-
-        if (tool === "send_payment_link") {
-            return sendToolResult(res, callId, {
-                success: true,
-                message: "Payment link sent successfully.",
-                account_id: args.account_id
-            });
-        }
-
-        
-
-        if (tool === "mark_disposition") {
-            return sendToolResult(res, callId, {
-                success: true,
-                disposition_logged: args.disposition,
-                notes: args.notes || "No additional notes."
-            });
-        }
-
-        
-        return sendToolResult(res, callId, {
-            success: false,
-            message: "Unknown tool."
-        });
-
-    } catch (error) {
-        console.error("Webhook error:", error);
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error."
+    if (!call) {
+        console.log("No tool call found");
+        return res.status(200).json({
+            results: []
         });
     }
+
+    let tool;
+    let args;
+    let callId;
+
+    if (toolCall) {
+        tool = toolCall.name;
+        args = toolCall.arguments || {};
+        callId = toolCall.id;
+    } else {
+        tool = call.function.name;
+        args =
+            typeof call.function.arguments === "string"
+                ? JSON.parse(call.function.arguments)
+                : call.function.arguments || {};
+        callId = call.id;
+    }
+
+    console.log("TOOL:", tool);
+    console.log("ARGUMENTS:", args);
+    console.log("CALL ID:", callId);
+
+    
+    if (tool === "verify_customer") {
+        if (
+            args.account_id === "ACC-88392" &&
+            args.verification_code === "1234"
+        ) {
+            return sendToolResult(res, callId, {
+                verified: true,
+                message: "Identity verified successfully."
+            });
+        }
+
+        return sendToolResult(res, callId, {
+            verified: false,
+            message: "Verification failed. The account ID or verification code is incorrect."
+        });
+    }
+
+    
+    if (tool === "log_promise_to_pay") {
+        return sendToolResult(res, callId, {
+            success: true,
+            message: "Promise to pay recorded successfully.",
+            account_id: args.account_id,
+            ptp_date: args.ptp_date,
+            amount: args.amount
+        });
+    }
+
+    
+    if (tool === "send_payment_link") {
+        return sendToolResult(res, callId, {
+            success: true,
+            message: `Payment link sent successfully via ${args.channel}.`
+        });
+    }
+
+    
+    if (tool === "mark_disposition") {
+        return sendToolResult(res, callId, {
+            success: true,
+            disposition_logged: args.status,
+            notes: args.notes || "No additional notes."
+        });
+    }
+
+    return sendToolResult(res, callId, {
+        success: false,
+        message: "Unknown tool."
+    });
 });
 
 app.listen(3000, () => {
